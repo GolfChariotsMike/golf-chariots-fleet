@@ -352,3 +352,67 @@ body {
 .leaflet-tile-pane {
   filter: brightness(0.85) saturate(0.7);
 }
+
+/* ─── Add Device ─── */
+.btn-add-device {
+  background: #1e3a5f;
+  color: #93c5fd;
+  border: 1px solid #3b82f6;
+  border-radius: 4px;
+  width: 24px;
+  height: 24px;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+}
+.btn-add-device:hover { background: #1e4976; }
+
+.add-device-form {
+  padding: 10px 12px;
+  background: #141414;
+  border-bottom: 1px solid #2a2a2a;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.add-device-form input {
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #e2e8f0;
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  outline: none;
+}
+.add-device-form input:focus { border-color: #3b82f6; }
+.add-device-actions {
+  display: flex;
+  gap: 8px;
+}
+.add-device-actions button {
+  flex: 1;
+  padding: 7px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+.add-device-actions button:first-child {
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+}
+.add-device-actions button:first-child:disabled { opacity: 0.5; }
+.add-device-actions button:last-child {
+  background: transparent;
+  color: #888;
+  border: 1px solid #333;
+}
+.add-device-error {
+  color: #ef4444;
+  font-size: 0.75rem;
+}

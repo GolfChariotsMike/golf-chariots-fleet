@@ -117,6 +117,7 @@ export default function App() {
         alerts={alerts}
         selectedDeviceId={selectedDeviceId}
         onSelectDevice={setSelectedDeviceId}
+        onDeviceAdded={fetchAll}
       />
       <div className="main">
         <div className="status-bar">

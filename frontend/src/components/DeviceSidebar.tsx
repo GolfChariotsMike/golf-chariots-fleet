@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { supabase } from '../lib/supabase'
 import type { Device, Location, GeofenceAlert } from '../lib/supabase'
 
 interface DeviceWithLocation extends Device {
@@ -10,6 +12,7 @@ interface Props {
   alerts: GeofenceAlert[]
   selectedDeviceId: string | null
   onSelectDevice: (id: string) => void
+  onDeviceAdded: () => void
 }
 
 function timeSince(dateStr: string): string {
@@ -30,8 +33,29 @@ function batteryColor(pct: number | null | undefined): string {
   return '#ef4444'
 }
 
-export default function DeviceSidebar({ devices, alerts, selectedDeviceId, onSelectDevice }: Props) {
+export default function DeviceSidebar({ devices, alerts, selectedDeviceId, onSelectDevice, onDeviceAdded }: Props) {
   const recentAlerts = alerts.slice(0, 5)
+  const [showAdd, setShowAdd] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newImei, setNewImei] = useState('')
+  const [adding, setAdding] = useState(false)
+  const [error, setError] = useState('')
+
+  async function addDevice() {
+    const imei = newImei.trim()
+    const name = newName.trim()
+    if (!imei) { setError('IMEI is required'); return }
+    if (!/^\d{15}$/.test(imei)) { setError('IMEI must be 15 digits'); return }
+    setAdding(true)
+    setError('')
+    const { error: err } = await supabase.from('devices').insert({ imei, name: name || null })
+    setAdding(false)
+    if (err) { setError(err.message); return }
+    setNewName('')
+    setNewImei('')
+    setShowAdd(false)
+    onDeviceAdded()
+  }
 
   return (
     <div className="sidebar">
@@ -40,7 +64,32 @@ export default function DeviceSidebar({ devices, alerts, selectedDeviceId, onSel
         <p className="subtitle">Golf Chariots / MIROJO</p>
       </div>
 
-      <div className="section-title">DEVICES ({devices.length})</div>
+      <div className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span>DEVICES ({devices.length})</span>
+        <button className="btn-add-device" onClick={() => { setShowAdd(v => !v); setError('') }}>＋</button>
+      </div>
+
+      {showAdd && (
+        <div className="add-device-form">
+          <input
+            placeholder="Device name (e.g. Trike 1)"
+            value={newName}
+            onChange={e => setNewName(e.target.value)}
+            autoFocus
+          />
+          <input
+            placeholder="IMEI (15 digits)"
+            value={newImei}
+            onChange={e => setNewImei(e.target.value.replace(/\D/g, '').slice(0, 15))}
+            onKeyDown={e => e.key === 'Enter' && addDevice()}
+          />
+          {error && <div className="add-device-error">{error}</div>}
+          <div className="add-device-actions">
+            <button onClick={addDevice} disabled={adding}>{adding ? 'Adding…' : 'Add Device'}</button>
+            <button onClick={() => { setShowAdd(false); setError(''); setNewName(''); setNewImei('') }}>Cancel</button>
+          </div>
+        </div>
+      )}
       <div className="device-list">
         {devices.length === 0 && (
           <div className="empty-state">No devices registered yet.<br />Connect a VL802 tracker to get started.</div>
