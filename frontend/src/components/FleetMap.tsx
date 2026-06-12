@@ -215,6 +215,9 @@ export default function FleetMap({ devices, geofences, onGeofenceCreated }: Prop
         zoom={deviceWithLoc ? 17 : 16}
         options={{
           ...MAP_OPTIONS,
+          draggable: !drawing,
+          scrollwheel: !drawing,
+          disableDoubleClickZoom: drawing,
           draggableCursor: drawing ? PENCIL_CURSOR : undefined,
           draggingCursor: drawing ? PENCIL_CURSOR : undefined,
         }}
