@@ -1,0 +1,13 @@
+{
+  "name": "golf-chariots-tcp-server",
+  "version": "1.0.0",
+  "description": "GT06 TCP server for VL802 GPS trackers",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  }
+}

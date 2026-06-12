@@ -1,0 +1,10 @@
+{
+  "name": "golf-chariots-fleet",
+  "private": true,
+  "workspaces": ["frontend", "server"],
+  "scripts": {
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:server": "cd server && npm run dev",
+    "build": "cd frontend && npm run build"
+  }
+}
