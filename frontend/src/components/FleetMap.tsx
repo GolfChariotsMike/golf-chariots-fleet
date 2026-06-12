@@ -1,25 +1,31 @@
-import { useState } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, Polygon, useMapEvents } from 'react-leaflet'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
+import { useState, useCallback, useRef } from 'react'
+import {
+  GoogleMap,
+  useJsApiLoader,
+  Marker,
+  Polygon,
+  InfoWindow,
+} from '@react-google-maps/api'
 import { supabase } from '../lib/supabase'
 import type { Device, Location, Geofence } from '../lib/supabase'
 
-// Fix leaflet default icon
-delete (L.Icon.Default.prototype as any)._getIconUrl
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-})
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string
 
-const alertIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-})
+// Links Kennedy Bay Golf Course, Port Kennedy WA
+const DEFAULT_CENTER = { lat: -32.3686, lng: 115.7556 }
+
+const MAP_OPTIONS: google.maps.MapOptions = {
+  mapTypeId: 'satellite',
+  tilt: 0,
+  mapTypeControl: true,
+  mapTypeControlOptions: {
+    style: 2, // DROPDOWN_MENU
+    position: 3, // TOP_RIGHT
+  },
+  streetViewControl: false,
+  fullscreenControl: true,
+  zoomControl: true,
+}
 
 interface DeviceWithLocation extends Device {
   latestLocation?: Location
@@ -29,85 +35,88 @@ interface DeviceWithLocation extends Device {
 interface Props {
   devices: DeviceWithLocation[]
   geofences: Geofence[]
-  selectedDeviceId: string | null  // eslint-disable-line @typescript-eslint/no-unused-vars
+  selectedDeviceId: string | null
   onGeofenceCreated: () => void
 }
 
-function DrawingLayer({ onComplete }: { onComplete: (coords: [number, number][]) => void }) {
-  const [points, setPoints] = useState<[number, number][]>([])
-
-  useMapEvents({
-    click(e) {
-      setPoints(prev => [...prev, [e.latlng.lat, e.latlng.lng]])
-    },
-    dblclick(e) {
-      const newPoints = [...points, [e.latlng.lat, e.latlng.lng]] as [number, number][]
-      if (newPoints.length >= 3) {
-        onComplete(newPoints)
-      }
-      setPoints([])
-    }
+export default function FleetMap({ devices, geofences, onGeofenceCreated }: Props) {
+  const { isLoaded, loadError } = useJsApiLoader({
+    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
   })
 
-  return points.length > 0 ? <Polygon positions={points} color="#f59e0b" fillOpacity={0.2} /> : null
-}
-
-const TILE_LAYERS = {
-  satellite: {
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attribution: 'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics',
-    label: '🛰 Satellite',
-  },
-  street: {
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    label: '🗺 Street',
-  },
-}
-
-export default function FleetMap({ devices, geofences, onGeofenceCreated }: Props) {
   const [drawing, setDrawing] = useState(false)
-  const [tileMode, setTileMode] = useState<'satellite' | 'street'>('satellite')
-  const [pendingCoords, setPendingCoords] = useState<[number, number][] | null>(null)
+  const [drawPoints, setDrawPoints] = useState<google.maps.LatLngLiteral[]>([])
+  const [pendingCoords, setPendingCoords] = useState<google.maps.LatLngLiteral[] | null>(null)
   const [geofenceName, setGeofenceName] = useState('')
   const [saving, setSaving] = useState(false)
+  const [selectedDevice, setSelectedDevice] = useState<DeviceWithLocation | null>(null)
+  const mapRef = useRef<google.maps.Map | null>(null)
 
-  // Default center: Links Kennedy Bay Golf Course, Port Kennedy WA
   const deviceWithLoc = devices.find(d => d.latestLocation)
-  const center: [number, number] = deviceWithLoc?.latestLocation
-    ? [deviceWithLoc.latestLocation.lat, deviceWithLoc.latestLocation.lng]
-    : [-32.3686, 115.7556]
+  const center = deviceWithLoc?.latestLocation
+    ? { lat: deviceWithLoc.latestLocation.lat, lng: deviceWithLoc.latestLocation.lng }
+    : DEFAULT_CENTER
+
+  const onMapLoad = useCallback((map: google.maps.Map) => {
+    mapRef.current = map
+  }, [])
+
+  const handleMapClick = useCallback((e: google.maps.MapMouseEvent) => {
+    if (!drawing || !e.latLng) return
+    setDrawPoints(prev => [...prev, { lat: e.latLng!.lat(), lng: e.latLng!.lng() }])
+  }, [drawing])
+
+  const handleMapDblClick = useCallback((e: google.maps.MapMouseEvent) => {
+    if (!drawing || !e.latLng) return
+    const finalPoints = [...drawPoints, { lat: e.latLng.lat(), lng: e.latLng.lng() }]
+    if (finalPoints.length >= 3) {
+      setPendingCoords(finalPoints)
+      setDrawPoints([])
+      setDrawing(false)
+    }
+  }, [drawing, drawPoints])
 
   async function saveGeofence() {
     if (!pendingCoords || !geofenceName.trim()) return
     setSaving(true)
     await supabase.from('geofences').insert({
       name: geofenceName.trim(),
-      coordinates: pendingCoords,
+      coordinates: pendingCoords.map(p => [p.lat, p.lng]),
       active: true
     })
     setSaving(false)
     setPendingCoords(null)
     setGeofenceName('')
-    setDrawing(false)
     onGeofenceCreated()
+  }
+
+  if (loadError) {
+    return (
+      <div className="map-error">
+        <p>⚠️ Google Maps failed to load.</p>
+        <p>You may need to enable the <strong>Maps JavaScript API</strong> in Google Cloud Console for key ending in <code>…Av9o</code></p>
+        <a href="https://console.cloud.google.com/apis/library/maps-backend.googleapis.com" target="_blank" rel="noreferrer">
+          Enable it here →
+        </a>
+      </div>
+    )
+  }
+
+  if (!isLoaded) {
+    return <div className="map-loading">Loading map…</div>
   }
 
   return (
     <div className="map-container">
       <div className="map-toolbar">
-        <button
-          className="btn-tile-toggle"
-          onClick={() => setTileMode(m => m === 'satellite' ? 'street' : 'satellite')}
-        >
-          {tileMode === 'satellite' ? TILE_LAYERS.street.label : TILE_LAYERS.satellite.label}
-        </button>
         {!drawing ? (
-          <button className="btn-draw" onClick={() => setDrawing(true)}>✏️ Draw Geofence</button>
+          <button className="btn-draw" onClick={() => { setDrawing(true); setDrawPoints([]) }}>
+            ✏️ Draw Geofence
+          </button>
         ) : (
           <div className="draw-instructions">
-            Click to add points • Double-click to finish
-            <button className="btn-cancel" onClick={() => { setDrawing(false); setPendingCoords(null) }}>Cancel</button>
+            Click to add points • Double-click to finish ({drawPoints.length} points)
+            <button className="btn-cancel" onClick={() => { setDrawing(false); setDrawPoints([]) }}>Cancel</button>
           </div>
         )}
       </div>
@@ -124,7 +133,7 @@ export default function FleetMap({ devices, geofences, onGeofenceCreated }: Prop
             />
             <div className="modal-actions">
               <button onClick={saveGeofence} disabled={saving || !geofenceName.trim()}>
-                {saving ? 'Saving...' : 'Save'}
+                {saving ? 'Saving…' : 'Save'}
               </button>
               <button onClick={() => { setPendingCoords(null); setGeofenceName('') }}>Discard</button>
             </div>
@@ -132,55 +141,105 @@ export default function FleetMap({ devices, geofences, onGeofenceCreated }: Prop
         </div>
       )}
 
-      <MapContainer
+      <GoogleMap
+        mapContainerStyle={{ height: '100%', width: '100%' }}
         center={center}
-        zoom={deviceWithLoc ? 16 : 15}
-        style={{ height: '100%', width: '100%' }}
-        doubleClickZoom={!drawing}
+        zoom={deviceWithLoc ? 17 : 16}
+        options={MAP_OPTIONS}
+        onLoad={onMapLoad}
+        onClick={handleMapClick}
+        onDblClick={handleMapDblClick}
       >
-        <TileLayer
-          key={tileMode}
-          attribution={TILE_LAYERS[tileMode].attribution}
-          url={TILE_LAYERS[tileMode].url}
-        />
-
+        {/* Saved geofences */}
         {geofences.map(gf => (
           <Polygon
             key={gf.id}
-            positions={gf.coordinates}
-            color="#3b82f6"
-            fillOpacity={0.15}
-          >
-            <Popup>{gf.name}</Popup>
-          </Polygon>
+            paths={(gf.coordinates as [number, number][]).map(([lat, lng]) => ({ lat, lng }))}
+            options={{
+              strokeColor: '#3b82f6',
+              strokeOpacity: 0.9,
+              strokeWeight: 2,
+              fillColor: '#3b82f6',
+              fillOpacity: 0.15,
+            }}
+          />
         ))}
 
+        {/* In-progress geofence drawing */}
+        {drawPoints.length > 1 && (
+          <Polygon
+            paths={drawPoints}
+            options={{
+              strokeColor: '#f59e0b',
+              strokeOpacity: 0.9,
+              strokeWeight: 2,
+              fillColor: '#f59e0b',
+              fillOpacity: 0.2,
+            }}
+          />
+        )}
+
+        {/* Pending (drawn, not yet named) geofence */}
+        {pendingCoords && (
+          <Polygon
+            paths={pendingCoords}
+            options={{
+              strokeColor: '#10b981',
+              strokeOpacity: 0.9,
+              strokeWeight: 2,
+              fillColor: '#10b981',
+              fillOpacity: 0.2,
+            }}
+          />
+        )}
+
+        {/* Device markers */}
         {devices.map(device => {
           if (!device.latestLocation) return null
           const loc = device.latestLocation
           return (
             <Marker
               key={device.id}
-              position={[loc.lat, loc.lng]}
-              icon={device.hasAlert ? alertIcon : undefined}
-            >
-              <Popup>
-                <strong>{device.name || device.imei}</strong><br />
-                Speed: {loc.speed ?? '—'} km/h<br />
-                Heading: {loc.heading ?? '—'}°<br />
-                Battery: {loc.battery ?? '—'}%<br />
-                Satellites: {loc.satellites ?? '—'}<br />
-                Ignition: {loc.ignition ? 'ON' : 'OFF'}<br />
-                <small>{new Date(loc.recorded_at).toLocaleString()}</small>
-              </Popup>
-            </Marker>
+              position={{ lat: loc.lat, lng: loc.lng }}
+              icon={device.hasAlert ? {
+                path: google.maps.SymbolPath.CIRCLE,
+                scale: 10,
+                fillColor: '#ef4444',
+                fillOpacity: 1,
+                strokeColor: '#fff',
+                strokeWeight: 2,
+              } : {
+                path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+                scale: 6,
+                rotation: loc.heading ?? 0,
+                fillColor: '#22c55e',
+                fillOpacity: 1,
+                strokeColor: '#fff',
+                strokeWeight: 2,
+              }}
+              onClick={() => setSelectedDevice(device)}
+            />
           )
         })}
 
-        {drawing && !pendingCoords && (
-          <DrawingLayer onComplete={setPendingCoords} />
+        {/* Info window for selected device */}
+        {selectedDevice?.latestLocation && (
+          <InfoWindow
+            position={{ lat: selectedDevice.latestLocation.lat, lng: selectedDevice.latestLocation.lng }}
+            onCloseClick={() => setSelectedDevice(null)}
+          >
+            <div style={{ color: '#000', minWidth: 160 }}>
+              <strong>{selectedDevice.name || selectedDevice.imei}</strong><br />
+              Speed: {selectedDevice.latestLocation.speed ?? '—'} km/h<br />
+              Heading: {selectedDevice.latestLocation.heading ?? '—'}°<br />
+              Battery: {selectedDevice.latestLocation.battery ?? '—'}%<br />
+              Satellites: {selectedDevice.latestLocation.satellites ?? '—'}<br />
+              Ignition: {selectedDevice.latestLocation.ignition ? 'ON' : 'OFF'}<br />
+              <small>{new Date(selectedDevice.latestLocation.recorded_at).toLocaleString()}</small>
+            </div>
+          </InfoWindow>
         )}
-      </MapContainer>
+      </GoogleMap>
     </div>
   )
 }
