@@ -52,17 +52,31 @@ function DrawingLayer({ onComplete }: { onComplete: (coords: [number, number][])
   return points.length > 0 ? <Polygon positions={points} color="#f59e0b" fillOpacity={0.2} /> : null
 }
 
+const TILE_LAYERS = {
+  satellite: {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics',
+    label: '🛰 Satellite',
+  },
+  street: {
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    label: '🗺 Street',
+  },
+}
+
 export default function FleetMap({ devices, geofences, onGeofenceCreated }: Props) {
   const [drawing, setDrawing] = useState(false)
+  const [tileMode, setTileMode] = useState<'satellite' | 'street'>('satellite')
   const [pendingCoords, setPendingCoords] = useState<[number, number][] | null>(null)
   const [geofenceName, setGeofenceName] = useState('')
   const [saving, setSaving] = useState(false)
 
-  // Default center: Australia
-  const center: [number, number] = [devices.find(d => d.latestLocation)?.latestLocation
-    ? [devices.find(d => d.latestLocation)!.latestLocation!.lat, devices.find(d => d.latestLocation)!.latestLocation!.lng] as [number, number]
-    : [-25.2744, 133.7751] as [number, number]
-  ][0]
+  // Default center: Links Kennedy Bay Golf Course, Port Kennedy WA
+  const deviceWithLoc = devices.find(d => d.latestLocation)
+  const center: [number, number] = deviceWithLoc?.latestLocation
+    ? [deviceWithLoc.latestLocation.lat, deviceWithLoc.latestLocation.lng]
+    : [-32.3686, 115.7556]
 
   async function saveGeofence() {
     if (!pendingCoords || !geofenceName.trim()) return
@@ -82,6 +96,12 @@ export default function FleetMap({ devices, geofences, onGeofenceCreated }: Prop
   return (
     <div className="map-container">
       <div className="map-toolbar">
+        <button
+          className="btn-tile-toggle"
+          onClick={() => setTileMode(m => m === 'satellite' ? 'street' : 'satellite')}
+        >
+          {tileMode === 'satellite' ? TILE_LAYERS.street.label : TILE_LAYERS.satellite.label}
+        </button>
         {!drawing ? (
           <button className="btn-draw" onClick={() => setDrawing(true)}>✏️ Draw Geofence</button>
         ) : (
@@ -114,13 +134,14 @@ export default function FleetMap({ devices, geofences, onGeofenceCreated }: Prop
 
       <MapContainer
         center={center}
-        zoom={5}
+        zoom={deviceWithLoc ? 16 : 15}
         style={{ height: '100%', width: '100%' }}
         doubleClickZoom={!drawing}
       >
         <TileLayer
-          attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          key={tileMode}
+          attribution={TILE_LAYERS[tileMode].attribution}
+          url={TILE_LAYERS[tileMode].url}
         />
 
         {geofences.map(gf => (
