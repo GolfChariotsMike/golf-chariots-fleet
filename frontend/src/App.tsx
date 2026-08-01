@@ -36,7 +36,7 @@ export default function App() {
           newAlerts.push({
             device_id: device.id,
             geofence_id: gf.id,
-            alert_type: 'entry',
+            alert_type: 'enter',
             location: { lat: loc.lat, lng: loc.lng }
           })
           device.hasAlert = true
