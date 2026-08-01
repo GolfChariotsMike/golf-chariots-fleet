@@ -29,12 +29,12 @@ export default function App() {
 
       for (const gf of activeGeofences) {
         const inside = pointInPolygon(point, gf.coordinates)
-        if (!inside) {
-          // Device is outside geofence — record exit alert
+        if (inside) {
+          // Device has entered a restricted zone (green) — trigger alert
           newAlerts.push({
             device_id: device.id,
             geofence_id: gf.id,
-            alert_type: 'exit',
+            alert_type: 'entry',
             location: { lat: loc.lat, lng: loc.lng }
           })
           device.hasAlert = true
