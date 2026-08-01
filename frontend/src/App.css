@@ -416,3 +416,47 @@ body {
   color: #ef4444;
   font-size: 0.75rem;
 }
+
+/* Geofence Panel */
+.geofence-panel {
+  border-top: 1px solid #2a2a2a;
+  padding-top: 8px;
+}
+.geofence-list { display: flex; flex-direction: column; gap: 4px; padding: 4px 0; }
+.geofence-item {
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.15s;
+}
+.geofence-item:hover { background: #1e1e1e; }
+.geofence-item.selected { border-color: #f59e0b; background: #1a1500; }
+.geofence-item.inactive { opacity: 0.5; }
+.geofence-row { display: flex; align-items: center; gap: 8px; }
+.geofence-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #6b7280; flex-shrink: 0;
+}
+.geofence-dot.active { background: #ef4444; }
+.geofence-name { flex: 1; font-size: 0.85rem; color: #e5e5e5; }
+.geofence-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s; }
+.geofence-item:hover .geofence-actions { opacity: 1; }
+.geofence-item.selected .geofence-actions { opacity: 1; }
+.geofence-actions button {
+  background: transparent; border: none; cursor: pointer;
+  padding: 2px 4px; border-radius: 4px; font-size: 0.8rem; line-height: 1;
+}
+.geofence-actions button:hover { background: #2a2a2a; }
+.geofence-actions .btn-delete:hover { background: #3a1010; }
+.geofence-actions button:disabled { opacity: 0.4; cursor: default; }
+.geofence-edit-row { display: flex; gap: 4px; align-items: center; }
+.geofence-edit-row input {
+  flex: 1; background: #1a1a1a; border: 1px solid #3b82f6;
+  color: #fff; padding: 3px 6px; border-radius: 4px; font-size: 0.82rem;
+}
+.geofence-edit-row button {
+  background: transparent; border: 1px solid #333; color: #aaa;
+  padding: 2px 6px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;
+}
+.geofence-edit-row button:first-of-type { color: #22c55e; border-color: #22c55e; }

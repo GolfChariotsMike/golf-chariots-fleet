@@ -3,6 +3,7 @@ import { supabase } from './lib/supabase'
 import type { Device, Location, Geofence, GeofenceAlert } from './lib/supabase'
 import { pointInPolygon } from './lib/geofence'
 import DeviceSidebar from './components/DeviceSidebar'
+import GeofencePanel from './components/GeofencePanel'
 import FleetMap from './components/FleetMap'
 import './App.css'
 
@@ -16,6 +17,7 @@ export default function App() {
   const [geofences, setGeofences] = useState<Geofence[]>([])
   const [alerts, setAlerts] = useState<GeofenceAlert[]>([])
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null)
+  const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(null)
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
 
   const checkGeofences = useCallback(async (updatedDevices: DeviceWithLocation[], currentGeofences: Geofence[]) => {
@@ -119,6 +121,12 @@ export default function App() {
         onSelectDevice={setSelectedDeviceId}
         onDeviceAdded={fetchData}
       />
+      <GeofencePanel
+          geofences={geofences}
+          selectedGeofenceId={selectedGeofenceId}
+          onSelect={setSelectedGeofenceId}
+          onChanged={fetchData}
+        />
       <div className="main">
         <div className="status-bar">
           <span>Live GPS Fleet Tracking</span>
@@ -128,6 +136,8 @@ export default function App() {
           devices={devices}
           geofences={geofences}
           selectedDeviceId={selectedDeviceId}
+          selectedGeofenceId={selectedGeofenceId}
+          onSelectGeofence={setSelectedGeofenceId}
           onGeofenceCreated={fetchData}
         />
       </div>

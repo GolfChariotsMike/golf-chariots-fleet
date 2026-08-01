@@ -34,6 +34,8 @@ interface Props {
   devices: DeviceWithLocation[]
   geofences: Geofence[]
   selectedDeviceId: string | null
+  selectedGeofenceId: string | null
+  onSelectGeofence: (id: string | null) => void
   onGeofenceCreated: () => void
 }
 
@@ -47,7 +49,7 @@ function pixelToLatLng(map: google.maps.Map, x: number, y: number): google.maps.
   return { lat, lng }
 }
 
-export default function FleetMap({ devices, geofences, onGeofenceCreated }: Props) {
+export default function FleetMap({ devices, geofences, selectedGeofenceId, onSelectGeofence, onGeofenceCreated }: Props) {
   const { isLoaded, loadError } = useJsApiLoader({ googleMapsApiKey: GOOGLE_MAPS_API_KEY })
 
   const [drawing, setDrawing] = useState(false)
@@ -195,13 +197,25 @@ export default function FleetMap({ devices, geofences, onGeofenceCreated }: Prop
           onLoad={onMapLoad}
         >
           {/* Saved geofences */}
-          {geofences.map(gf => (
-            <Polygon
-              key={gf.id}
-              paths={(gf.coordinates as [number, number][]).map(([lat, lng]) => ({ lat, lng }))}
-              options={{ strokeColor: '#3b82f6', strokeOpacity: 0.9, strokeWeight: 2, fillColor: '#3b82f6', fillOpacity: 0.15 }}
-            />
-          ))}
+          {geofences.map(gf => {
+            const isSelected = gf.id === selectedGeofenceId
+            const isActive = gf.active
+            return (
+              <Polygon
+                key={gf.id}
+                paths={(gf.coordinates as [number, number][]).map(([lat, lng]) => ({ lat, lng }))}
+                options={{
+                  strokeColor: isSelected ? '#f59e0b' : isActive ? '#ef4444' : '#6b7280',
+                  strokeOpacity: 0.9,
+                  strokeWeight: isSelected ? 3 : 2,
+                  fillColor: isSelected ? '#f59e0b' : isActive ? '#ef4444' : '#6b7280',
+                  fillOpacity: isSelected ? 0.3 : 0.15,
+                  clickable: true,
+                }}
+                onClick={() => onSelectGeofence(isSelected ? null : gf.id)}
+              />
+            )
+          })}
 
           {/* Pending saved geofence */}
           {pendingCoords && (
