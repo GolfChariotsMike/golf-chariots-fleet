@@ -33,6 +33,8 @@ export default function GeofencePanel({ geofences, selectedGeofenceId, onSelect,
 
   async function deleteGeofence(id: string) {
     setDeleting(id)
+    // Clear alerts referencing this geofence first (foreign key constraint)
+    await supabase.from('geofence_alerts').delete().eq('geofence_id', id)
     await supabase.from('geofences').delete().eq('id', id)
     if (selectedGeofenceId === id) onSelect(null)
     setDeleting(null)
