@@ -14,8 +14,6 @@ export default function GeofencePanel({ geofences, selectedGeofenceId, onSelect,
   const [editName, setEditName] = useState('')
   const [deleting, setDeleting] = useState<string | null>(null)
 
-  const selected = geofences.find(g => g.id === selectedGeofenceId)
-
   async function startEdit(gf: Geofence) {
     setEditingId(gf.id)
     setEditName(gf.name)
